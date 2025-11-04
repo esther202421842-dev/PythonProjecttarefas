@@ -4,7 +4,6 @@ from datetime import datetime
 
 DB_PATH = Path(__file__).parent / "todo.db"
 
-
 def get_conn():
     return sqlite3.connect(str(DB_PATH))
 
@@ -25,9 +24,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-
 def validar_fecha(fecha):
-    """Devuelve True si fecha es None/vacía o si cumple AAAA-MM-DD."""
     if not fecha:
         return True
     try:
@@ -40,7 +37,7 @@ def input_opcional(msg):
     v = input(msg).strip()
     return v if v else None
 
-def input_prioridade(msg="Prioridade (1 = alta, 2 = média, 3 = baixa) [2]: "):
+def input_prioridade(msg="Prioridade (1 = alta, 2 = média, 3 = baixa): "):
     v = input(msg).strip()
     if not v:
         return 2
@@ -54,12 +51,12 @@ def input_prioridade(msg="Prioridade (1 = alta, 2 = média, 3 = baixa) [2]: "):
         return input_prioridade(msg)
     return v
 
-def input_data(msg="Vencimento (AAAA-MM-DD) [vazio=None]: "):
+def input_data(msg="Vencimento (AAAA-MM-DD): "):
     v = input(msg).strip()
     if not v:
         return None
     if not validar_fecha(v):
-        print("→ Formato inválido. Use AAAA-MM-DD (ex.: 2025-10-20).")
+        print("→ Formato inválido. Use AAAA-MM-DD.")
         return input_data(msg)
     return v
 
@@ -85,17 +82,16 @@ def print_tabela(rows):
         print(fmt(r))
     print()
 
-
 def create_task():
     print("\n== Criar tarefa ==")
     titulo = input("Título (obrigatório): ").strip()
     if not titulo:
-        print("→ Título é obrigatório. Operação cancelada.\n")
+        print("→ Título é obrigatório.\n")
         return
-    descricao  = input_opcional("Descrição (opcional): ")
+    descricao  = input_opcional("Descrição: ")
     vencimento = input_data()
     prioridade = input_prioridade()
-    tags       = input_opcional("Tags (CSV, ex.: faculdade,LES) [opcional]: ")
+    tags       = input_opcional("Tags (CSV): ")
 
     conn = get_conn()
     cur = conn.cursor()
@@ -106,7 +102,7 @@ def create_task():
     conn.commit()
     task_id = cur.lastrowid
     conn.close()
-    print("→ Tarefa criada com id {}.\n".format(task_id))
+    print(f"→ Tarefa criada com id {task_id}.\n")
 
 def _query_tasks(where_sql="", params=()):
     conn = get_conn()
@@ -122,40 +118,89 @@ def _query_tasks(where_sql="", params=()):
 
 def list_tasks():
     print("\n== Listar tarefas ==")
-    # Filtros opcionais
-    f_status = input("Filtrar por status [vazio=sem filtro | todo/doing/done]: ").strip()
-    status = f_status if f_status in ("todo","doing","done") else None
+    print("""
+Escolha um filtro:
+1 - Status
+2 - Prioridade
+3 - Tag
+4 - Ver tudo (sem filtros)
+0 - Voltar
+""")
 
-    f_prio = input("Filtrar por prioridade [vazio=sem filtro | 1/2/3]: ").strip()
-    prioridade = None
-    if f_prio:
-        try:
-            pv = int(f_prio)
-            if pv in (1,2,3):
-                prioridade = pv
-        except ValueError:
-            pass
-
-    f_tag = input("Filtrar por tag ").strip()
-    taglike = "%{}%".format(f_tag) if f_tag else None
-
+    opc = input("Opção: ").strip()
     where = []
     params = []
-    if status:
-        where.append("status=?"); params.append(status)
-    if prioridade is not None:
-        where.append("prioridade=?"); params.append(prioridade)
-    if taglike:
-        where.append("(tags LIKE ?)"); params.append(taglike)
+
+    if opc == "1":
+        print("""
+Status:
+1 - todo
+2 - doing
+3 - done
+""")
+        sel = input("Escolha: ").strip()
+        status_map = {"1": "todo", "2": "doing", "3": "done"}
+        if sel in status_map:
+            where.append("status=?")
+            params.append(status_map[sel])
+
+    elif opc == "2":
+        print("""
+Prioridade:
+1 - Alta
+2 - Média
+3 - Baixa
+""")
+        sel = input("Escolha: ").strip()
+        if sel in ("1","2","3"):
+            where.append("prioridade=?")
+            params.append(int(sel))
+
+    elif opc == "3":
+        tag = input("Digite a tag: ").strip()
+        if tag:
+            where.append("tags LIKE ?")
+            params.append(f"%{tag}%")
+
+    elif opc == "4":
+        pass
+
+    elif opc == "0":
+        print()
+        return
+
+    else:
+        print("→ Opção inválida\n")
+        return
 
     where_sql = " AND ".join(where)
     rows = _query_tasks(where_sql, tuple(params))
     print_tabela(rows)
 
-    # Resumo rápido
     total = _count_all()
     c_todo, c_doing, c_done = _count_by_status()
-    print("Resumo: total={} | todo={} | doing={} | done={}\n".format(total, c_todo, c_doing, c_done))
+    print(f"Resumo: total={total} | todo={c_todo} | doing={c_doing} | done={c_done}\n")
+
+def buscar_tarefa():
+    termo = input("\nDigite palavra-chave: ").strip()
+    if not termo:
+        print("→ Informe um termo.\n")
+        return
+    like = f"%{termo}%"
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT * FROM tasks WHERE titulo LIKE ? OR descricao LIKE ? OR tags LIKE ? ORDER BY prioridade ASC, id DESC",
+        (like, like, like)
+    )
+    resultados = cur.fetchall()
+    conn.close()
+
+    if not resultados:
+        print("Nenhuma tarefa encontrada.\n")
+        return
+
+    print_tabela(resultados)
 
 def update_task():
     print("\n== Editar tarefa ==")
@@ -164,41 +209,41 @@ def update_task():
     except ValueError:
         print("→ ID inválido.\n"); return
 
-    titulo    = input_opcional("Novo título [enter=manter]: ")
+    titulo    = input_opcional("Novo título: ")
     if titulo is not None and not titulo.strip():
         print("→ Título não pode ser vazio.\n"); return
-    descricao = input_opcional("Nova descrição [enter=manter]: ")
-    vencimento= input_data("Novo vencimento (AAAA-MM-DD) [enter=manter]: ")
-    pr_raw    = input("Nova prioridade (1/2/3) [enter=manter]: ").strip()
-    prioridade= None
+    descricao = input_opcional("Nova descrição: ")
+    vencimento= input_data("Novo vencimento (AAAA-MM-DD): ")
+    pr_raw    = input("Nova prioridade (1/2/3): ").strip()
+    prioridade = None
     if pr_raw:
         try:
-            pr = int(pr_raw)
-            if pr not in (1,2,3):
+            p = int(pr_raw)
+            if p not in (1,2,3):
                 raise ValueError
-            prioridade = pr
+            prioridade = p
         except ValueError:
-            print("→ Prioridade deve ser 1, 2 ou 3.\n"); return
-    st_raw    = input("Novo status (todo/doing/done) [enter=manter]: ").strip()
-    status    = st_raw if st_raw in ("todo","doing","done") else None
-    tags      = input_opcional("Novas tags (CSV) [enter=manter]: ")
+            print("→ Prioridade inválida.\n"); return
+    st_raw = input("Novo status (todo/doing/done): ").strip()
+    status = st_raw if st_raw in ("todo","doing","done") else None
+    tags   = input_opcional("Novas tags: ")
 
     fields = {}
-    if titulo is not None:     fields["titulo"] = titulo
-    if descricao is not None:  fields["descricao"] = descricao
+    if titulo is not None: fields["titulo"] = titulo
+    if descricao is not None: fields["descricao"] = descricao
     if vencimento is not None: fields["vencimento"] = vencimento
     if prioridade is not None: fields["prioridade"] = prioridade
-    if status is not None:     fields["status"] = status
-    if tags is not None:       fields["tags"] = tags
+    if status is not None: fields["status"] = status
+    if tags is not None: fields["tags"] = tags
     if not fields:
         print("→ Nada para atualizar.\n"); return
 
-    sets = ", ".join(["{}=?".format(k) for k in fields.keys()])
+    sets = ", ".join([f"{k}=?" for k in fields.keys()])
     values = list(fields.values()) + [task_id]
 
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("UPDATE tasks SET {} WHERE id=?".format(sets), values)
+    cur.execute(f"UPDATE tasks SET {sets} WHERE id=?", values)
     conn.commit()
     ok = cur.rowcount > 0
     conn.close()
@@ -210,9 +255,9 @@ def delete_task():
         task_id = int(input("ID da tarefa: ").strip())
     except ValueError:
         print("→ ID inválido.\n"); return
-    conf = input("Tem certeza? digite 'SIM' para confirmar: ").strip()
+    conf = input("Tem certeza? digite 'SIM': ").strip()
     if conf != "SIM":
-        print("→ Exclusão cancelada.\n"); return
+        print("→ Cancelado.\n"); return
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("DELETE FROM tasks WHERE id=?", (task_id,))
@@ -257,56 +302,33 @@ def kanban_view():
     print("\n== Resumo / Kanban ==")
     c_todo, c_doing, c_done = _count_by_status()
     total = _count_all()
-    print("Total: {}  |  todo: {}  |  doing: {}  |  done: {}\n".format(total, c_todo, c_doing, c_done))
-
-    def show(col_status, titulo_col):
-        rows = _query_tasks("status=?", (col_status,))
-        print("[{}] ({})".format(titulo_col, len(rows)))
-        if not rows:
-            print("  — vazio —")
-        else:
-            for r in rows:
-                _id, tit, desc, venc, prio, st, tags = r
-                linha = "  #{}  {}".format(_id, tit)
-                if venc: linha += "  (venc: {})".format(venc)
-                if prio: linha += "  [p{}]".format(prio)
-                print(linha)
-        print()
-
-    show("todo",  "TODO")
-    show("doing", "DOING")
-    show("done",  "DONE")
-
+    print(f"Total: {total}  |  todo: {c_todo}  |  doing: {c_doing}  |  done: {c_done}\n")
 
 def menu():
     while True:
-        print("==== Mini Gestor de Tarefas ====")
-        print("1 - Criar tarefa")
-        print("2 - Listar tarefas")
-        print("3 - Editar tarefa")
-        print("4 - Concluir tarefa")
-        print("5 - Excluir tarefa")
-        print("6 - Resumo ")
-        print("0 - Sair")
-        op = input("Escolha uma opção: ").strip()
-        if op == "1":
-            create_task()
-        elif op == "2":
-            list_tasks()
-        elif op == "3":
-            update_task()
-        elif op == "4":
-            mark_done()
-        elif op == "5":
-            delete_task()
-        elif op == "6":
-            kanban_view()
+        print("""==== Mini Gestor de Tarefas ====
+1 - Criar tarefa
+2 - Listar tarefas (com filtros)
+3 - Editar tarefa
+4 - Concluir tarefa
+5 - Excluir tarefa
+6 - Resumo
+7 - Buscar tarefa (palavra-chave)
+0 - Sair
+""")
+        op = input("Escolha: ").strip()
+        if op == "1": create_task()
+        elif op == "2": list_tasks()
+        elif op == "3": update_task()
+        elif op == "4": mark_done()
+        elif op == "5": delete_task()
+        elif op == "6": kanban_view()
+        elif op == "7": buscar_tarefa()
         elif op == "0":
             print("Até mais!")
             break
         else:
             print("→ Opção inválida.\n")
-
 
 if __name__ == "__main__":
     init_db()
