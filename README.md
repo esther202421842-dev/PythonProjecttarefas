@@ -56,3 +56,85 @@ RNF03: Os dados devem persistir após encerramento do programa
 
 
 
+
+
+
+
+Sprint 2 – Mini Gestor de Tarefas
+
+Nesta segunda etapa do projeto, foram implementadas funcionalidades avançadas de busca e filtragem.
+
+Funcionalidades Entregues – Sprint 2
+
+Filtrar tarefas por status  
+Filtrar tarefas por tag 
+Filtrar tarefas por prioridade  
+Combinação de filtro  
+Busca por palavra-chave  
+Melhorias no menu e validação de dados  
+Atualização dos diagramas UML
+
+
+ Requisitos Funcionais – Sprint 2
+
+RF07 – Filtrar por Status
+O sistema deve permitir que o usuário filtre tarefas por *todo*, *doing* ou *done*.
+
+RF08 – Filtrar por Tag
+O sistema deve listar tarefas que contenham uma ou mais tags informadas.
+
+RF09 – Filtrar por Prioridade
+O usuário pode exibir apenas tarefas de prioridade:
+- 1 = Alta  
+- 2 = Média  
+- 3 = Baixa  
+
+RF10 – Combinação de Filtros
+O sistema deve permitir que o usuário aplique mais de um filtro ao mesmo tempo, como:
+- status + prioridade  
+- tag + prioridade  
+- status + palavra-chave  
+- todos os filtros juntos  
+
+RF11 – Busca por Palavra-Chave
+O usuário pode buscar tarefas digitando um termo que será procurado em:
+- título  
+- descrição  
+- tags
+
+
+  Requisitos Não Funcionais – Sprint 2
+
+RNF04 – Persistência Aprimorada
+O banco SQLite deve armazenar corretamente novos campos e permitir filtros combinados.
+
+RNF05 – Validação de Dados
+O sistema deve validar:
+- status informado  
+- prioridade válida (1, 2 ou 3)  
+- tags no formato CSV  
+- palavra-chave não vazia  
+
+RNF06 – Documentação Atualizada
+Todos os seguintes artefatos devem ser atualizados:
+- casos de uso  
+- diagramas de sequência  
+- diagramas de atividade 
+
+  
+
+
+Diagramas UML do Sprint 2
+
+ Diagrama de Caso de Uso – Filtros e Busca  
+ Diagrama de Sequência – Listagem com Filtros  
+ Diagrama de Sequência – Busca por Palavra-Chave  
+ Diagrama de Atividade – Listagem Filtrada  
+ Diagrama de Atividade – Busca por Palavra-Chave  
+
+*(As imagens estão incluídas no repositório.)*
+
+ Status do Sprint 2
+ Concluído com sucesso
+
+
