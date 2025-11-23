@@ -37,7 +37,7 @@ def input_opcional(msg):
     v = input(msg).strip()
     return v if v else None
 
-def input_prioridade(msg="Prioridade (1 = alta, 2 = média, 3 = baixa): "):
+def input_prioridade(msg= " Prioridade (1 = alta, 2 = média, 3 = baixa ): "):
     v = input(msg).strip()
     if not v:
         return 2
@@ -51,7 +51,7 @@ def input_prioridade(msg="Prioridade (1 = alta, 2 = média, 3 = baixa): "):
         return input_prioridade(msg)
     return v
 
-def input_data(msg="Vencimento (AAAA-MM-DD): "):
+def input_data(msg="Vencimento (AAAA-MM-DD) [vazio=None]: "):
     v = input(msg).strip()
     if not v:
         return None
@@ -181,6 +181,7 @@ Prioridade:
     c_todo, c_doing, c_done = _count_by_status()
     print(f"Resumo: total={total} | todo={c_todo} | doing={c_doing} | done={c_done}\n")
 
+
 def buscar_tarefa():
     termo = input("\nDigite palavra-chave: ").strip()
     if not termo:
@@ -298,11 +299,66 @@ def _count_by_status():
     conn.close()
     return counts.get("todo",0), counts.get("doing",0), counts.get("done",0)
 
-def kanban_view():
-    print("\n== Resumo / Kanban ==")
-    c_todo, c_doing, c_done = _count_by_status()
-    total = _count_all()
-    print(f"Total: {total}  |  todo: {c_todo}  |  doing: {c_doing}  |  done: {c_done}\n")
+
+
+def kanban_detalhado():
+    print("\n========== KANBAN DETALHADO ==========")
+
+    colunas = {
+        "todo": [],
+        "doing": [],
+        "done": []
+    }
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id, titulo, prioridade, vencimento, status FROM tasks ORDER BY prioridade ASC")
+    for row in cur.fetchall():
+        colunas[row[4]].append(row)
+    conn.close()
+
+    print("\nTODO")
+    for t in colunas["todo"]:
+        print(f"- #{t[0]} {t[1]} / prioridade:{t[2]} / vencimento: {t[3]}")
+
+    print("\n DOING")
+    for t in colunas["doing"]:
+        print(f"- #{t[0]} {t[1]} / prioridade: {t[2]} / vencimento: {t[3]}")
+
+    print("\nDONE")
+    for t in colunas["done"]:
+        print(f"- #{t[0]} {t[1]} / [prioridade: {t[2]} / vencimento: {t[3]}")
+
+    print("\n======================================\n")
+
+
+def gerar_relatorio():
+    print("\n== Gerar Relatório ==")
+
+    data = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    nome = f"relatorio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    path = Path(__file__).parent / nome
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM tasks ORDER BY status, prioridade")
+    tarefas = cur.fetchall()
+    conn.close()
+
+    total = len(tarefas)
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"RELATÓRIO DE TAREFAS\nGerado em: {data}\n\n")
+        f.write(f"Total de tarefas: {total}\n\n")
+
+        f.write("ID | Título | Status | Prioridade | Vencimento\n")
+        f.write("-"*70 + "\n")
+
+        for t in tarefas:
+            f.write(f"{t[0]} | {t[1]} | {t[5]} | {t[4]} | {t[3]}\n")
+
+    print(f"→ Relatório gerado: {nome}\n")
+
 
 def menu():
     while True:
@@ -312,9 +368,10 @@ def menu():
 3 - Editar tarefa
 4 - Concluir tarefa
 5 - Excluir tarefa
-6 - Resumo
-7 - Buscar tarefa (palavra-chave)
-0 - Sair
+6 - Buscar tarefa (palavra-chave)
+7 - Kanban detalhado 
+8 - Gerar relatório   
+9 - Sair
 """)
         op = input("Escolha: ").strip()
         if op == "1": create_task()
@@ -322,9 +379,10 @@ def menu():
         elif op == "3": update_task()
         elif op == "4": mark_done()
         elif op == "5": delete_task()
-        elif op == "6": kanban_view()
-        elif op == "7": buscar_tarefa()
-        elif op == "0":
+        elif op == "6": buscar_tarefa()
+        elif op == "7": kanban_detalhado()
+        elif op == "8": gerar_relatorio()
+        elif op == "9":
             print("Até mais!")
             break
         else:
